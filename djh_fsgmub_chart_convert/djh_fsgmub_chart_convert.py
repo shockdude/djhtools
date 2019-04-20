@@ -79,6 +79,7 @@ B = 13 = blue effects
 
 import os, sys
 import struct
+import binascii
 
 FSGMUB_EXTENSION = ".fsgmub"
 CHART_EXTENSION = ".chart"
@@ -259,19 +260,32 @@ def chart_to_fsgmub(chart_filename):
 	fsgmub_array.append([4, 44, 0.0625])
 	fsgmub_array.append([4, 45, 0.0625])
 	
-	with open(fsgmub_filename, "wb") as fsgmub_file:
-		line_count = len(fsgmub_array)
-		# fsgmub header
-		# version (2), fake hash (deadbeef), chart length, string blob size (0)
-		fsgmub_file.write(struct.pack(">IIII", 2, 0xdeadbeef, line_count, 0))
-		
-		for line in fsgmub_array:
-			# note position, note type, note length, text pointer (0)
-			fsgmub_file.write(struct.pack(">fIfI",
+	# binary lines to write
+	output_array = []
+	for line in fsgmub_array:
+		output_array.append(struct.pack(">fIfI",
 										float(line[0]),
 										int(line[1]),
 										float(line[2]),
 										0))
+	
+	with open(fsgmub_filename, "wb") as fsgmub_file:
+		line_count = len(fsgmub_array)
+		
+		# compute crc
+		# chart length, string blob size (0), chart lines
+		crc = binascii.crc32(struct.pack(">II", line_count, 0))
+		for line in output_array:
+			# note position, note type, note length, text pointer (0)
+			crc = binascii.crc32(line, crc)
+		
+		# fsgmub header
+		# version (2), crc, chart length, string blob size (0)
+		fsgmub_file.write(struct.pack(">IIII", 2, crc, line_count, 0))
+		
+		for line in output_array:
+			# note position, note type, note length, text pointer (0)
+			fsgmub_file.write(line)
 										
 		# write extra row if the linecount is even
 		# all the other charts do this so why not
