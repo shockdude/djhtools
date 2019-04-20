@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSGMUB/CHART Converter v0.2
+# DJ Hero FSGMUB/CHART Converter v0.3
 # Convert FSGMUB to CHART, and CHART to FSGMUB
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
@@ -35,7 +35,7 @@ StringBlob
 HEADER (16 bytes)
 =================
 INT32 - Version (1 or 2)
-INT32 - Hash
+INT32 - Hash (CRC32)
 INT32 - Count of entries
 INT32 - Size of string blob
 
