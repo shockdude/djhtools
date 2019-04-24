@@ -23,7 +23,8 @@ be playable in-game.
 === Supported MP3 settings ===
 
 DJ Hero Wii default: 32khz, 160kbps
-	Note the Wii hardware cannot output a higher sample rate than 32khz.
+	Note that while the game supports higher sample rate MP3s, the Wii hardware
+	itself cannot output a higher sample rate than 32khz.
 DJ Hero PS3 default: 44.1khz, 160kbps
 
 Supported constant MP3 bitrates (kbps):
