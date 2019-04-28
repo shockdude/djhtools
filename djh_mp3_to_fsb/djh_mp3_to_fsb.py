@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSB builder v0.6
+# DJ Hero FSB builder v0.7
 # Convert MP3s to FSBs playable in DJ Hero
 
 import os, sys
@@ -60,23 +60,25 @@ fsb_bitrate = None
 def write_fsb_header(fsb_outfile, fsb_inputfilename, fsb_size, num_frames):
 	# credit to vgmstream & fsbext for the fsb documentation
 	
+	header_size = 0x50
 	num_samples = num_frames * SAMPLES_PER_FRAME
 	loop_start = 0
 	loop_end = num_samples - 1
 	stream_size = fsb_size
 	sample_data_size = fsb_size
+	mode = 0x4000200
 
 	# copy FSB header from input fsb file
 	with open(fsb_inputfilename, "rb") as fsb_inputfile:
-		fsb_outfile.write(fsb_inputfile.read(12))
-		fsb_inputfile.seek(4, 1)
-		fsb_outfile.write(struct.pack("<I", sample_data_size))
-		fsb_outfile.write(fsb_inputfile.read(64))
-		fsb_inputfile.seek(16, 1)
-		fsb_outfile.write(struct.pack("<IIII", num_samples, stream_size, loop_start, loop_end))
-		fsb_outfile.write(fsb_inputfile.read(4))
-		fsb_inputfile.seek(4, 1)
-		fsb_outfile.write(struct.pack("<I", fsb_sample_rate))
+		fsb_outfile.write(fsb_inputfile.read(8))
+		fsb_inputfile.seek(8, 1)
+		fsb_outfile.write(struct.pack("<II", header_size, sample_data_size))
+		fsb_outfile.write(fsb_inputfile.read(32))
+		fsb_inputfile.seek(2, 1)
+		fsb_outfile.write(struct.pack("<H", header_size))
+		fsb_outfile.write(fsb_inputfile.read(30))
+		fsb_inputfile.seek(24, 1)
+		fsb_outfile.write(struct.pack("<IIIIII", num_samples, stream_size, loop_start, loop_end, mode, fsb_sample_rate))
 		fsb_outfile.write(fsb_inputfile.read(24))
 
 def check_frame_get_size(header, fsb_inputfilename):

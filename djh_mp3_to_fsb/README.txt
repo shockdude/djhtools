@@ -1,6 +1,6 @@
 MP3 to FSB converter for DJ Hero (djh_mp3_to_fsb.exe)
 Convert MP3 stems to FSB format, compatible with DJ Hero
-Tested in DJ Hero Wii
+Tested in DJ Hero Wii, PS3, 360
 Written in Python, tested in Python 3.7
 
 === Usage ===
@@ -8,7 +8,7 @@ Written in Python, tested in Python 3.7
 Run from the command line.
 djh_mp3_to_fsb.exe input.fsb green_track.mp3 blue_track.mp3 red_track.mp3 [output.fsb]
 
-The input.fsb should be a FSB file extracted from DJ Hero.
+The input.fsb should be a FSB file extracted from DJ Hero (Wii, PS3, 360).
 All MP3s must be 32/44.1/48khz, constant bitrate (preferably 160kbps or higher)
 	See "Supported MP3 settings" for more detail.
 Specifying the name of the output FSB is optional.
