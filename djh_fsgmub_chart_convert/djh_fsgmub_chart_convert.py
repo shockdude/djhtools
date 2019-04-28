@@ -114,7 +114,7 @@ CHART_EFFECTS_SECTION = "[ExpertDoubleRhythm]"
 CHART_EFFECTS_NOTES = (12, 16, 50, 13, None)
 CHART_END_NOTES = (44, 45)
 CHART_MEASURE = 192 * 4
-MIN_LENGTH = 1.0/192
+MIN_LENGTH = 1.0/96
 
 def usage():
 	print("Usage: {} [inputfile]".format(sys.argv[0]))
@@ -160,7 +160,7 @@ def fsgmub_to_chart(fsgmub_filename):
 		print("Length: {}".format(fsgmub_data[2]))
 		
 		# string blob size, ignore
-		fsgmub_file.read(4)
+		fsgmub_file.seek(4, 1)
 		
 		fsgmub_length = fsgmub_data[2]
 		
@@ -180,7 +180,7 @@ def fsgmub_to_chart(fsgmub_filename):
 					print("Warning: unknown note type {} at fsgmub note {}".format(note_type, i))
 			
 			# text pointer, ignore
-			fsgmub_file.read(4)
+			fsgmub_file.seek(4, 1)
 				
 	with open(chart_filename, "w") as chart_file:
 		print(CHART_HEADER, file=chart_file)
