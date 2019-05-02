@@ -6,7 +6,8 @@ Written in Python, tested in Python 3.7
 === Usage ===
 
 Run from the command line.
-djh_mp3_to_fsb.exe input.fsb green_track.mp3 blue_track.mp3 red_track.mp3 [output.fsb]
+For DJ songs: djh_mp3_to_fsb.exe input.fsb green_track.mp3 blue_track.mp3 red_track.mp3 [output.fsb]
+For Guitar songs: djh_mp3_to_fsb.exe input.fsb guitar.mp3 song.mp3 [output.fsb]
 
 The input.fsb should be a FSB file extracted from DJ Hero (Wii, PS3, 360).
 All MP3s must be 32/44.1/48khz, constant bitrate (preferably 160kbps or higher)
@@ -14,11 +15,12 @@ All MP3s must be 32/44.1/48khz, constant bitrate (preferably 160kbps or higher)
 Specifying the name of the output FSB is optional.
 	The default output name is "output.fsb"
 
-The MP3s can all be the same file, but make sure the peak loudless is -10dB or
+The MP3s can all be the same file, BUT make sure the peak loudless is -10dB or
 quieter, otherwise the audio will be obnoxiously loud and will also clip badly.
 
 The resulting output FSB can then replace any existing FSB in DJ Hero and
-be playable in-game.
+be playable in-game. Just make sure to only replace DJ songs with DJ songs,
+and Guitar songs with Guitar songs.
 
 === Supported MP3 settings ===
 
