@@ -114,7 +114,7 @@ CHART_EFFECTS_SECTION = "[ExpertDoubleRhythm]"
 CHART_EFFECTS_NOTES = (12, 16, 50, 13, None)
 CHART_END_NOTES = (44, 45)
 CHART_MEASURE = 192 * 4
-MIN_LENGTH = 1.0/96
+MIN_LENGTH = 1.0/32
 
 def usage():
 	print("Usage: {} [inputfile]".format(sys.argv[0]))
