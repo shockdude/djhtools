@@ -1,4 +1,5 @@
 DJ Hero fsgmub/csv converter (djh_fsgmub_csv_convert.py)
+shockdude
 
 Convert DJ Hero charts (fsgmub/xmk files) to .csv files for editing in
 a spreadsheet program (MS Excel, Google Sheets, LibreOffice Calc).
@@ -50,7 +51,8 @@ NoteTypes
 
 === DJ Hero 2 Reference ===
 
-NoteTypes [optional extra data]
+NoteTypes
+[optional extra data in brackets]
 0 - green tap
 1 - blue tap
 2 - red tap
@@ -83,17 +85,19 @@ NoteTypes [optional extra data]
 31 - freestyle crossfade green marker
 32 - freestyle crossfade blue marker
 
-EFFECT_[num] - different effect types, num is from -1 to 9.
-	some of these might just be the default effect. e.g. pretty sure -1 is default.
-	chart hex value: 0x05FFFFFF - 0x06000009
 AUTHOR - charter's name [string address]
 	chart hex value: 0x0AFFFFFF
 CHART_BPM - beats per minute [float] (ignored in-game?)
 	chart hex value: 0x0B000002
-BEAT_LENGTH - distance between beat markers [int, usually 60,000,000 / bpm]
+BEAT_LENGTH - distance between beat markers in microseconds [int]
+	equivalent to 60,000,000 / bpm
 	djh2 charts are fixed bpm, but give the illusion of variable bpm by adjusting the beat marker distance.
 	chart hex value: 0x0B000001
 SECTION - section/rewind checkpoint [string address, section name]
 	chart hex value: 0x09FFFFFF
 CHART_BEGIN - when the chart begins? ignored in-game?
 	chart hex value: 0xFFFFFFFF
+FX_ - different effect types to use with effects (notes 12 ,13, 14, 22)
+	FX_FILTER, FX_BEATROLL, FX_BITREDUCE, FX_WAHWAH, FX_RINGMOD, FX_STUTTER, FX_FLANGER, FX_ROBOT, FX_ADV_BEATROLL, FX_DELAY
+	without an FX type, the effect used is FX_FILTER
+	chart hex values: 0x05FFFFFF - 0x06000009 (except for 0x06000008)

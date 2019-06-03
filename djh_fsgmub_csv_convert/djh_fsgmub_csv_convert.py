@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) [year] [fullname]
+Copyright (c) 2019 shockdude
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,9 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSGMUB/CSV Converter v0.2
-# Convert FSGMUB to CSV, and CSV to FSGMUB
-# Partial support for DJH2 XMK
+# DJ Hero FSGMUB/CSV Converter v0.3
+# Convert FSGMUB/XMK to CSV, and CSV to FSGMUB (can be renamed to XMK)
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
 
@@ -62,17 +61,12 @@ HEADER_SIZE = 16
 ENTRY_SIZE = 16
 ALIGN_SIZE = 32
 
-FLAG_NAME = 0
-FLAG_TYPE = 1
-BEATLINE_MAX = 60000000
+FLAG_NAMES = ("AUTHOR", "SECTION", "CHART_BPM", "BEAT_LENGTH", "CHART_BEGIN", "FX_FILTER", "FX_BEATROLL", "FX_BITREDUCE", "FX_WAHWAH", "FX_RINGMOD", "FX_STUTTER", "FX_FLANGER", "FX_ROBOT", "FX_ADV_BEATROLL", "FX_DELAY")
+FLAG_TYPES = (0x0AFFFFFF,0x09FFFFFF,0x0B000002,0x0B000001,0xFFFFFFFF,0x05FFFFFF,0x06000000,0x06000001,0x06000002,0x06000003,0x06000004,0x06000005,0x06000006,0x06000007,0x06000009)
 
-FLAG_NAMES = ("AUTHOR", "SECTION", "CHART_BPM", "BEAT_LENGTH", "CHART_BEGIN")
-FLAG_TYPES = (0x0AFFFFFF,0x09FFFFFF,0x0B000002,0x0B000001,0xFFFFFFFF)
-
-EFFECT_PREFIX = "EFFECT_"
-EFFECT_TYPE = 0x06000000
-EFFECT_MIN = 0x05FFFFFF
-EFFECT_MAX = 0x06000009
+if len(FLAG_NAMES) != len(FLAG_TYPES):
+	print("Error: mismatched number of flag names & flag types")
+	sys.exit(1)
 
 FLAG_AUTHOR = 0
 FLAG_SECTION = 1
@@ -117,11 +111,6 @@ def fsgmub_to_csv(fsgmub_filename):
 					flag_i = FLAG_TYPES.index(note_type)
 				except ValueError:
 					flag_i = -1
-					if note_type >= EFFECT_MIN and note_type <= EFFECT_MAX:
-						effect_num = note_type & 0xFF
-						if effect_num == 0xFF:
-							effect_num = -1
-						note_type = EFFECT_PREFIX + str(effect_num)
 				if flag_i >= 0:
 					note_type = FLAG_NAMES[flag_i]
 					if flag_i == FLAG_AUTHOR or flag_i == FLAG_SECTION:
@@ -160,8 +149,6 @@ def csv_to_fsgmub(csv_filename):
 				flag_i = FLAG_NAMES.index(nt_upper)
 			except ValueError:
 				flag_i = -1
-				if nt_upper.find(EFFECT_PREFIX) == 0:
-					note_type = EFFECT_TYPE + int(nt_upper[len(EFFECT_PREFIX):])
 			if flag_i >= 0:
 				note_type = FLAG_TYPES[flag_i]
 				if flag_i == FLAG_AUTHOR or flag_i == FLAG_SECTION:
