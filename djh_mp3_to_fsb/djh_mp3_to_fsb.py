@@ -22,11 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSB builder v0.9
+# DJ Hero FSB builder v1.0
 # Convert MP3s to FSBs playable in DJ Hero
 
 import os, sys
 import struct
+from contextlib import ExitStack
 
 OUTPUT_FSB = "output.fsb"
 
@@ -41,6 +42,9 @@ WAV_EXTENSION = ".wav"
 # tagging
 TAG_PREFIX = b"TAG"
 ID3_PREFIX = b"ID3"
+INFO_TAG_SILENCE = (0,0,0,0,0,0,0,0)
+INFO_TAG_ID = (1868983881, 1735289176) # Info, Xing in little endian
+INFO_TAG_READSIZE = 0x24
 
 # MPEG v1: frame size = 1152 samples/frame * bitrate / samplerate / 8 bits/byte
 #                     = 144 * bitrate / samplerate
@@ -203,9 +207,10 @@ def main():
 		frame_counts.append(0)
 		mp3_not_done.append(True)
 	
-	# check for ID3 tags so that they can be ignored
+	# check for tags so that they can be ignored
 	for i in range(mp3_count):
 		with open(mp3_filenames[i], "rb") as mp3_files[i]:
+			# check for ID3 tags
 			id3_data = mp3_files[i].read(3)
 			if id3_data == ID3_PREFIX: #ID3v2
 				mp3_files[i].read(3)
@@ -215,6 +220,20 @@ def main():
 			elif id3_data == TAG_PREFIX: #ID3v1
 				tag_sizes[i] = 256
 				print("Note: MP3 file {} has ID3v1 tags, size {}".format(mp3_filenames[i], tag_sizes[i]))
+			
+			# check for the Info tag
+			mp3_files[i].seek(tag_sizes[i])
+			frame_header = mp3_files[i].read(MP3_HEADER_SIZE)
+			if len(frame_header) < MP3_HEADER_SIZE or frame_header[0:3] == TAG_PREFIX:
+				continue
+			frame_size = check_frame_get_size(frame_header, mp3_filenames[i])
+			mp3_info_tag = mp3_files[i].read(INFO_TAG_READSIZE)
+			if len(mp3_info_tag) != INFO_TAG_READSIZE:
+				continue
+			mp3_info_data = struct.unpack("IIIIIIIII", mp3_info_tag)
+			if mp3_info_data[:8] == INFO_TAG_SILENCE and mp3_info_data[8] in INFO_TAG_ID:
+				print("Note: MP3 file {} has Info tag, size {}".format(mp3_filenames[i], frame_size))
+				tag_sizes[i] += frame_size
 	
 	# count frames in mp3s
 	for i in range(mp3_count):
@@ -234,6 +253,9 @@ def main():
 	
 	# count the number of mp3 frames
 	num_frames = min(frame_counts)
+	if num_frames == 0:
+		print("Error: at least one MP3 file is invalid, 0 mp3 frames detected")
+		usage()
 	if sum(frame_counts) > num_frames * mp3_count:
 		print("Warning: mp3s are not the same length/do not have the same number of frames")
 		print("Frame counts: {}".format(frame_counts))
@@ -259,40 +281,24 @@ def main():
 	with open(fsb_outfilename, "wb") as fsb_out:
 		write_fsb_header(fsb_out, mp3_count, wav_name, num_frames, fsb_size)
 		
-		if mp3_count == 3:
-			with open(mp3_filenames[0], "rb") as mp3_files[0], open(mp3_filenames[1], "rb") as mp3_files[1], open(mp3_filenames[2], "rb") as mp3_files[2]:
+		# ExitStack for opening a variable number of files
+		with ExitStack() as stack:
+			for i in range(mp3_count):
+				mp3_files[i] = stack.enter_context(open(mp3_filenames[i], "rb"))
 				# skip tag headers
+				mp3_files[i].seek(tag_sizes[i])
+			
+			# interleave mp3 frames
+			for f in range(num_frames):
 				for i in range(mp3_count):
-					mp3_files[i].seek(tag_sizes[i])
-				
-				# interleave mp3 frames
-				for f in range(num_frames):
-					for i in range(mp3_count):
-						frame_size = frame_sizes[i][f]
-						fsb_out.write(mp3_files[i].read(frame_size))
-						# all fsb frames must be 0x10 aligned
-						offset = frame_size % 0x10
-						if offset > 0:
-							offset = 0x10 - offset
-							for j in range(offset):
-								fsb_out.write(b"\x00")
-		elif mp3_count == 2:
-			with open(mp3_filenames[0], "rb") as mp3_files[0], open(mp3_filenames[1], "rb") as mp3_files[1]:
-				# skip tag headers
-				for i in range(mp3_count):
-					mp3_files[i].seek(tag_sizes[i])
-				
-				# interleave mp3 frames
-				for f in range(num_frames):
-					for i in range(mp3_count):
-						frame_size = frame_sizes[i][f]
-						fsb_out.write(mp3_files[i].read(frame_size))
-						# all fsb frames must be 0x10 aligned
-						offset = frame_size % 0x10
-						if offset > 0:
-							offset = 0x10 - offset
-							for j in range(offset):
-								fsb_out.write(b"\x00")
+					frame_size = frame_sizes[i][f]
+					fsb_out.write(mp3_files[i].read(frame_size))
+					# all fsb frames must be 0x10 aligned
+					offset = frame_size % 0x10
+					if offset > 0:
+						offset = 0x10 - offset
+						for j in range(offset):
+							fsb_out.write(b"\x00")
 					
 	print("Wrote FSB {}".format(fsb_outfilename))
 
