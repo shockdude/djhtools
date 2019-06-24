@@ -40,6 +40,9 @@ MP3_EXTENSION = ".mp3"
 # tagging
 TAG_PREFIX = b"TAG"
 ID3_PREFIX = b"ID3"
+INFO_TAG_SILENCE = (0,0,0,0,0,0,0,0)
+INFO_TAG_ID = (1868983881, 1735289176) # Info, Xing in little endian
+INFO_TAG_READSIZE = 0x24
 
 # MPEG v1: frame size = 1152 samples/frame * bitrate / samplerate / 8 bits/byte
 #                     = 144 * bitrate / samplerate
@@ -113,7 +116,7 @@ def check_frame_get_size(header, mp3_filename):
 			fsb_bitrate = bitrate
 			print("Got bitrate: {}kbps".format(int(bitrate/1000)))
 			if fsb_bitrate == BITRATE_DEFAULT:
-				print("Same bitrate as Wii/PS3")
+				print("Note: Same bitrate as Wii/PS3")
 			elif fsb_bitrate > BITRATE_DEFAULT:
 				print("Note: Higher bitrate than Wii/PS3 (160kbps), which is fine.")
 			else:
@@ -187,10 +190,11 @@ def main():
 	fsb_sizes = []
 	offsets = []
 	
-	# check for ID3 tags so that they can be ignored
+	# check for tags so that they can be ignored
 	for i in range(mp3_count):
 		tag_sizes.append(0)
 		with open(mp3_filenames[i], "rb") as mp3_file:
+			# check for ID3 tags
 			id3_data = mp3_file.read(3)
 			if id3_data == ID3_PREFIX: #ID3v2
 				mp3_file.read(3)
@@ -200,6 +204,20 @@ def main():
 			elif id3_data == TAG_PREFIX: #ID3v1
 				tag_sizes[i] = 256
 				print("Note: MP3 file {} has ID3v1 tags, size {}".format(mp3_filenames[i], tag_sizes[i]))
+			
+			# check for the Info tag
+			mp3_file.seek(tag_sizes[i])
+			frame_header = mp3_file.read(MP3_HEADER_SIZE)
+			if len(frame_header) < MP3_HEADER_SIZE or frame_header[0:3] == TAG_PREFIX:
+				continue
+			frame_size = check_frame_get_size(frame_header, mp3_filenames[i])
+			mp3_info_tag = mp3_file.read(INFO_TAG_READSIZE)
+			if len(mp3_info_tag) != INFO_TAG_READSIZE:
+				continue
+			mp3_info_data = struct.unpack("IIIIIIIII", mp3_info_tag)
+			if mp3_info_data[:8] == INFO_TAG_SILENCE and mp3_info_data[8] in INFO_TAG_ID:
+				print("Note: MP3 file {} has Info tag, size {}".format(mp3_filenames[i], frame_size))
+				tag_sizes[i] += frame_size
 	
 	# count frames in mp3s
 	for i in range(mp3_count):
