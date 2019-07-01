@@ -80,7 +80,7 @@ def main():
 		usage()
 	
 	input_filename = sys.argv[1]
-	input_name, input_ext = os.path.splitext(os.path.basename(input_filename))
+	input_name, input_ext = os.path.splitext(input_filename)
 	
 	input_chart_mode = 0
 	if input_ext.lower() == FSGMUB_EXTENSION:
