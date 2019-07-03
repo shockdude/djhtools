@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSGMUB/XMK Converter v0.2
+# DJ Hero FSGMUB/XMK Converter v0.3
 # Convert DJH1 FSGMUB to DJH2 XMK and vice versa
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
@@ -51,6 +51,7 @@ INT32 - Text Pointer (Usually 0)
 import os, sys
 import struct
 import binascii
+from collections import deque
 
 FSGMUB_EXTENSION = ".fsgmub"
 XMK_EXTENSION = ".xmk"
@@ -65,16 +66,33 @@ NOTE_WHITELIST = (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,20,21,22,23,27,28,29,
 	0x0B000001,0x0B000002,0xFFFFFFFF)
 
 DJH1_MAX_NOTELEN = 1.0/16
+DJH1_MIN_NOTELEN = 1.0/32
+
+TO_SPIKE = {9:28, 10:29, 11:27}
 
 def usage():
 	print("Usage: {} [inputfile]".format(sys.argv[0]))
 	print("Basic conversion from FSGMUB (DJH1) to XMK (DJH2), or XMK to FSGMUB")
-	print("Warning: The conversion will not be perfect.")
-	print("DJH1 fast crossfades will not be converted to DJH2 spikes")
-	print("  so you will need to convert them manually.")
-	print("Also, incompatible notes will be ignored.")
+	print("Now converts DJH1 spikes to DJH2 spikes!")
 	sys.exit(1)
 
+def check_spike(crossfades):
+	# higher index = older
+	# assumption: cf[2] may or may not spike, cf[1] and cf[0] are not spikes
+	# check if cf[1] is a spike
+	if crossfades[0][1] == crossfades[1][1] or crossfades[1][1] == crossfades[2][1]:
+		print("Error: overlapping crossfades")
+		print(x for x in crossfades)
+		return False
+	if crossfades[1][2] <= DJH1_MAX_NOTELEN:
+		# anything can go to an edgespike except for a centerspike
+		if crossfades[2][1] != 29 and crossfades[1][1] in (9, 11):
+			return True
+		# centerspike
+		if crossfades[2][1] == crossfades[0][1]:
+			return True
+	return False
+		
 def main():
 	if len(sys.argv) < 2:
 		usage()
@@ -94,9 +112,11 @@ def main():
 		usage()
 
 	note_array = []
+	note_count = 0
 	output_array = []
 	string_length = 0
 	fsgmub_strings = None
+	cf_queue = deque()
 
 	with open(input_filename, "rb") as input_file:
 		# fsgmub header
@@ -127,8 +147,8 @@ def main():
 			elif input_chart_mode == 1: # djh1 to djh2
 				if note_data[1] in (48,49,50,51):
 					note_data[1] -= 28
-				elif note_data[1] in (0,1,2,3,4,5,6) and note_data[2] > DJH1_MAX_NOTELEN: # remove holds
-					note_data[2] = DJH1_MAX_NOTELEN
+				elif note_data[1] in (0,1,2,3,4,5,6): # remove holds
+					note_data[2] = DJH1_MIN_NOTELEN
 			else: #djh2 to djh1
 				if note_data[1] in (20,21,22,23):
 					note_data[1] += 28
@@ -138,10 +158,17 @@ def main():
 					note_data[1] = 9
 				elif note_data[1] == 29: # center spike
 					note_data[1] = 10
-				elif note_data[1] in (0,1,2,3,4,5,6) and note_data[2] > DJH1_MAX_NOTELEN: # remove holds
-					note_data[2] = DJH1_MAX_NOTELEN
+				elif note_data[1] in (0,1,2,3,4,5,6): # remove holds
+					note_data[2] = DJH1_MIN_NOTELEN
 			if note_data != None:
 				note_array.append(note_data)
+				if input_chart_mode == 1 and note_data[1] in (9,10,11): # check crossfades for spikes
+					cf_queue.appendleft(note_count)
+					if len(cf_queue) == 3:
+						if check_spike([note_array[x] for x in cf_queue]):
+							note_array[cf_queue[1]][1] = TO_SPIKE[note_array[cf_queue[1]][1]]
+						cf_queue.pop()
+				note_count += 1
 			
 	fsgmub_length = len(note_array)
 	for i in range(fsgmub_length):
