@@ -26,7 +26,7 @@ import csv
 import os
 import sys
 
-# DJH Text/CSV converter v0.2
+# DJH Text/CSV converter v0.3
 		
 def csv_to_txt(csv_filename):
 	folder_name, csv_ext = os.path.splitext(os.path.basename(csv_filename))
@@ -60,8 +60,10 @@ def csv_to_txt(csv_filename):
 				for i in range(num_files):
 					if i == id_index:
 						text_files[i].write(row[i] + "\n")
-					else:
+					elif i < len(row):
 						text_files[i].write(row[i].encode("utf-8") + b"\x00")
+					else:
+						text_files[i].write("".encode("utf-8") + b"\x00")
 						
 		for file in text_files:
 			file.close()
