@@ -22,14 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero 2 XMK/AIS Converter v0.3
+# DJ Hero 2 XMK/AIS Converter v0.4
 # Convert DJH2 XMK to DJH2 AIS - create an AI for your DJ Hero 2 chart!
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
 
 import os, sys
 import struct
-from random import random
+import random
 import xml.etree.ElementTree as ET
 
 XMK_EXTENSION = ".xmk"
@@ -102,8 +102,12 @@ def main():
 
 			with open(input_filename, "rb") as input_file:
 				# fsgmub header
-				# version, hash, length
+				# version, hash, length, stringdata
 				fsgmub_data = struct.unpack(">IIII", input_file.read(16))
+				
+				# set the random seed to be the chart hash + the hit rate for consistency
+				random.seed(fsgmub_data[1] + hit_rate)
+				
 				fsgmub_length = fsgmub_data[2]
 					
 				for i in range(fsgmub_length):
@@ -140,7 +144,7 @@ def main():
 				int_data = 0
 				pos, note, length = note_array[i][:3]
 				ai_time = start_time + pos*measure_time
-				is_hit = random() * 100 <= hit_rate
+				is_hit = random.uniform(0,100) <= hit_rate
 				hit_offset = 0
 				
 				if note == 26: # chunkremix
@@ -220,7 +224,7 @@ def main():
 				elif note in (7,8):
 					i = 1.0/32
 					while i < length: # hit anydir scratches
-						is_hit = random() * 100 <= hit_rate
+						is_hit = random.uniform(0,100) <= hit_rate
 						if is_hit:
 							output_array.append([0x40, ai_time + i*measure_time, float_data, int_data])
 							i += 1.0/32
