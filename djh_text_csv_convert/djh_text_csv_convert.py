@@ -27,7 +27,7 @@ import os
 import sys
 import time
 
-# DJH Text/CSV converter v0.4
+# DJH Text/CSV converter v0.41
         
 def error_and_exit(e):
     print(e)
@@ -74,10 +74,15 @@ def csv_to_txt(csv_filename):
             elif len(row) > 0: # ignore blank lines
                 if row[0][0:2] == "//": # ignore commented lines
                     continue
-                string_bin = b"\x00"
+
+                i = id_index
+                text_files[i].write(row[i] + "\n")
+                # use string id as text string if no other text string is provided
+                string_bin = row[i].encode("utf-8") + b"\x00"
+                
                 for i in range(num_files):
                     if i == id_index:
-                        text_files[i].write(row[i] + "\n")
+                        continue
                     elif i < len(row):
                         string_bin = row[i].encode("utf-8") + b"\x00"
                         text_files[i].write(string_bin)
