@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSGMUB/XMK Converter v0.3
+# DJ Hero FSGMUB/XMK Converter v0.4
 # Convert DJH1 FSGMUB to DJH2 XMK and vice versa
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
@@ -80,10 +80,6 @@ def check_spike(crossfades):
 	# higher index = older
 	# assumption: cf[2] may or may not spike, cf[1] and cf[0] are not spikes
 	# check if cf[1] is a spike
-	if crossfades[0][1] == crossfades[1][1] or crossfades[1][1] == crossfades[2][1]:
-		print("Error: overlapping crossfades")
-		print(x for x in crossfades)
-		return False
 	if crossfades[1][2] <= DJH1_MAX_NOTELEN:
 		# anything can go to an edgespike except for a centerspike
 		if crossfades[2][1] != 29 and crossfades[1][1] in (9, 11):
@@ -161,14 +157,23 @@ def main():
 				elif note_data[1] in (0,1,2,3,4,5,6): # remove holds
 					note_data[2] = DJH1_MIN_NOTELEN
 			if note_data != None:
-				note_array.append(note_data)
-				if input_chart_mode == 1 and note_data[1] in (9,10,11): # check crossfades for spikes
-					cf_queue.appendleft(note_count)
-					if len(cf_queue) == 3:
-						if check_spike([note_array[x] for x in cf_queue]):
-							note_array[cf_queue[1]][1] = TO_SPIKE[note_array[cf_queue[1]][1]]
-						cf_queue.pop()
-				note_count += 1
+				# crossfade handling
+				if input_chart_mode == 1 and note_data[1] in (9,10,11):
+					# combine consecutive crossfades in djh1 charts
+					if len(cf_queue) >= 1 and note_array[cf_queue[0]][1] == note_data[1]:
+						note_array[cf_queue[0]][2] = note_data[0] + note_data[2] - note_array[cf_queue[0]][0]
+					else:
+						note_array.append(note_data)
+						cf_queue.appendleft(note_count)
+						# check crossfades for spikes
+						if len(cf_queue) == 3:
+							if check_spike([note_array[x] for x in cf_queue]):
+								note_array[cf_queue[1]][1] = TO_SPIKE[note_array[cf_queue[1]][1]]
+							cf_queue.pop()
+						note_count += 1
+				else:
+					note_array.append(note_data)
+					note_count += 1
 			
 	fsgmub_length = len(note_array)
 	for i in range(fsgmub_length):
