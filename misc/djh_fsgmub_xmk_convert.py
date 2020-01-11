@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSGMUB/XMK Converter v0.4
+# DJ Hero FSGMUB/XMK Converter v0.41
 # Convert DJH1 FSGMUB to DJH2 XMK and vice versa
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
@@ -63,7 +63,8 @@ ALIGN_SIZE = 32
 STRING_NOTES = (0x0AFFFFFF,0x09FFFFFF)
 NOTE_WHITELIST = (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,20,21,22,23,27,28,29,48,49,50,51,
 	0x05FFFFFF,0x06000000,0x06000001,0x06000002,0x06000003,0x06000004,0x06000005,0x06000006,0x06000007,0x06000008,0x06000009,
-	0x0B000001,0x0B000002,0xFFFFFFFF)
+	0x0B000001,0x0B000002)
+CHART_BEGIN = [0, 0xFFFFFFFF, 0 ,0] # not part of the whitelist, manually added to djh2 charts
 
 DJH1_MAX_NOTELEN = 1.0/16
 DJH1_MIN_NOTELEN = 1.0/32
@@ -113,6 +114,7 @@ def main():
 	string_length = 0
 	fsgmub_strings = None
 	cf_queue = deque()
+	has_chart_begin = False
 
 	with open(input_filename, "rb") as input_file:
 		# fsgmub header
@@ -145,6 +147,10 @@ def main():
 					note_data[1] -= 28
 				elif note_data[1] in (0,1,2,3,4,5,6): # remove holds
 					note_data[2] = DJH1_MIN_NOTELEN
+				if not has_chart_begin and note_data[0] > 0: # manually add chart_begin note
+					has_chart_begin = True
+					note_array.append(CHART_BEGIN);
+					note_count += 1
 			else: #djh2 to djh1
 				if note_data[1] in (20,21,22,23):
 					note_data[1] += 28
