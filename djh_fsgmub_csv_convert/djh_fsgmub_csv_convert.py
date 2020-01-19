@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSGMUB/CSV Converter v0.3
+# DJ Hero FSGMUB/CSV Converter v0.4
 # Convert FSGMUB/XMK to CSV, and CSV to FSGMUB (can be renamed to XMK)
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
@@ -63,6 +63,10 @@ ALIGN_SIZE = 32
 
 FLAG_NAMES = ("AUTHOR", "SECTION", "CHART_BPM", "BEAT_LENGTH", "CHART_BEGIN", "FX_FILTER", "FX_BEATROLL", "FX_BITREDUCE", "FX_WAHWAH", "FX_RINGMOD", "FX_STUTTER", "FX_FLANGER", "FX_ROBOT", "FX_ADV_BEATROLL", "FX_DELAY")
 FLAG_TYPES = (0x0AFFFFFF,0x09FFFFFF,0x0B000002,0x0B000001,0xFFFFFFFF,0x05FFFFFF,0x06000000,0x06000001,0x06000002,0x06000003,0x06000004,0x06000005,0x06000006,0x06000007,0x06000009)
+LYRIC = 0x1000
+LYRIC_MASK = 0xFFFFFF00
+LYRIC_PITCH_MASK = 0xFF
+LYRIC_PREFIX = "LYRIC_"
 
 if len(FLAG_NAMES) != len(FLAG_TYPES):
 	print("Error: mismatched number of flag names & flag types")
@@ -120,6 +124,10 @@ def fsgmub_to_csv(fsgmub_filename):
 						other_data = struct.unpack(">f",other_data)[0]
 					else:
 						other_data = struct.unpack(">I",other_data)[0]
+				elif note_type & LYRIC_MASK == LYRIC:
+					note_type = "{}{}".format(LYRIC_PREFIX, note_type & LYRIC_PITCH_MASK)
+					str_index = struct.unpack(">I",other_data)[0] - ENTRY_SIZE*fsgmub_length
+					other_data = fsgmub_strings[str_index:].split(b"\x00",1)[0].decode("utf-8")
 				else:
 					other_data = struct.unpack(">I",other_data)[0]
 				fsgmub_data = (position, note_type, note_length, other_data)
@@ -164,6 +172,14 @@ def csv_to_fsgmub(csv_filename):
 				else:
 					pack_str = ">fIfI"
 					other_data = int(row[3])
+			elif nt_upper[0:len(LYRIC_PREFIX)] == LYRIC_PREFIX:
+				note_type = LYRIC + int(nt_upper[len(LYRIC_PREFIX):])
+				string_index = string_blob_size + ENTRY_SIZE*fsgmub_length
+				new_blob = row[3].encode("utf-8") + b"\x00"
+				string_blob += new_blob
+				string_blob_size += len(new_blob)
+				other_data = string_index
+				pack_str = ">fIfI"
 			else:
 				pack_str = ">fIfI"
 				if note_type == None:
