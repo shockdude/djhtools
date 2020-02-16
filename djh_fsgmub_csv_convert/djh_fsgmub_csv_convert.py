@@ -61,8 +61,8 @@ HEADER_SIZE = 16
 ENTRY_SIZE = 16
 ALIGN_SIZE = 32
 
-FLAG_NAMES = ("AUTHOR", "SECTION", "CHART_BPM", "BEAT_LENGTH", "CHART_BEGIN", "FX_FILTER", "FX_BEATROLL", "FX_BITREDUCE", "FX_WAHWAH", "FX_RINGMOD", "FX_STUTTER", "FX_FLANGER", "FX_ROBOT", "FX_ADV_BEATROLL", "FX_DELAY", "LYRIC_PAGE", "LYRIC_GREEN", "LYRIC_BLUE")
-FLAG_TYPES = (0x0AFFFFFF,0x09FFFFFF,0x0B000002,0x0B000001,0xFFFFFFFF,0x05FFFFFF,0x06000000,0x06000001,0x06000002,0x06000003,0x06000004,0x06000005,0x06000006,0x06000007,0x06000009,0x1101,0x1103,0x1104)
+FLAG_NAMES = ("AUTHOR", "SECTION", "CHART_BPM", "BEAT_LENGTH", "MARKUP_EVENT", "CHART_BEGIN", "FX_FILTER", "FX_BEATROLL", "FX_BITREDUCE", "FX_WAHWAH", "FX_RINGMOD", "FX_STUTTER", "FX_FLANGER", "FX_ROBOT", "FX_ADV_BEATROLL", "FX_DELAY", "LYRIC_PAGE", "LYRIC_GREEN", "LYRIC_BLUE")
+FLAG_TYPES = (0x0AFFFFFF,0x09FFFFFF,0x0B000002,0x0B000001,0x0B000000,0xFFFFFFFF,0x05FFFFFF,0x06000000,0x06000001,0x06000002,0x06000003,0x06000004,0x06000005,0x06000006,0x06000007,0x06000009,0x1101,0x1103,0x1104)
 LYRIC = 0x1000
 LYRIC_MASK = 0xFFFFFF00
 LYRIC_PITCH_MASK = 0xFF
@@ -76,7 +76,8 @@ FLAG_AUTHOR = 0
 FLAG_SECTION = 1
 FLAG_CHART_BPM = 2
 FLAG_BEAT_LENGTH = 3
-FLAG_CHART_BEGIN = 4
+FLAG_MARKUPEVENT = 4
+FLAG_CHART_BEGIN = 5
 
 def usage():
 	print("Usage: {} [inputfile]".format(sys.argv[0]))
@@ -117,7 +118,7 @@ def fsgmub_to_csv(fsgmub_filename):
 					flag_i = -1
 				if flag_i >= 0:
 					note_type = FLAG_NAMES[flag_i]
-					if flag_i == FLAG_AUTHOR or flag_i == FLAG_SECTION:
+					if flag_i == FLAG_AUTHOR or flag_i == FLAG_SECTION or flag_i == FLAG_MARKUPEVENT:
 						str_index = struct.unpack(">I",other_data)[0] - ENTRY_SIZE*fsgmub_length
 						other_data = fsgmub_strings[str_index:].split(b"\x00",1)[0].decode("utf-8")
 					elif flag_i == FLAG_CHART_BPM:
@@ -159,7 +160,7 @@ def csv_to_fsgmub(csv_filename):
 				flag_i = -1
 			if flag_i >= 0:
 				note_type = FLAG_TYPES[flag_i]
-				if flag_i == FLAG_AUTHOR or flag_i == FLAG_SECTION:
+				if flag_i == FLAG_AUTHOR or flag_i == FLAG_SECTION or flag_i == FLAG_MARKUPEVENT:
 					string_index = string_blob_size + ENTRY_SIZE*fsgmub_length
 					new_blob = row[3].encode("utf-8") + b"\x00"
 					string_blob += new_blob
