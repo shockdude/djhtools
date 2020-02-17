@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero 2 to DJ Engine Converter v0.4
+# DJ Hero 2 to DJ Engine Converter v0.51
 
 import os, sys
 import xml.etree.ElementTree as ET
@@ -32,12 +32,15 @@ import subprocess
 import shutil
 import time
 
+SLEEP_TIME = 3
+
 trac_dict = {}
 output_dir = "songs"
 
 def usage():
 	basename = os.path.basename(sys.argv[0])
-	print("DJH2 to DJ Engine Converter v0.4")
+	print()
+	print("DJH2 to DJ Engine Converter v0.51")
 	print("Convert DJH2 audiotracks folder or DJH2 custom charts to a songs folder compatible with DJ Engine Alpha v1.1")
 	print()
 	print("Usage: Drag-and-drop DJ Hero 2's AUDIO\Audiotracks folder onto {}".format(basename))
@@ -45,7 +48,7 @@ def usage():
 	print("You can drag-and-drop multiple custom songs and the script will attempt to convert them all")
 	print("Or use the commandline: {} [folder_path]".format(basename))
 	print()
-	time.sleep(3)
+	time.sleep(SLEEP_TIME)
 	sys.exit(1)
 
 def add_ini_key(track, ini_dict, ini_key, xml_elem, is_trac = False, xml_attr = None, xml_attr_value = None):
@@ -79,6 +82,8 @@ def add_ini_key(track, ini_dict, ini_key, xml_elem, is_trac = False, xml_attr = 
 def main():
 	convert_audio = True
 	is_audiotracks_folder = True
+	converted_count = 0
+	error_count = 0
 	
 	# hack to ensure working directory is the script directory
 	# for some reason this isn't guaranteed with the exe
@@ -89,8 +94,9 @@ def main():
 	sox_path = "sox/sox.exe"
 	
 	if not os.path.isfile(vgms_path) or not os.path.isfile(sox_path):
-		print("Warning: vgmstream or sox not found, skipping audio conversion")
+		print("Error: vgmstream or sox not found, skipping audio conversion")
 		convert_audio = False
+		error_count += 1
 	
 	chart_paths = None
 	if len(sys.argv) > 1:
@@ -144,12 +150,18 @@ def main():
 							if row[0][0:2] == "//": # ignore commented lines
 								continue
 							trac_dict[row[0]] = row[-1]
-		except FileNotFoundError:
-			print("Warning: missing TRAC files, using IDs as strings instead")
+		except Exception as e:
+			print("Warning: failed to use TRAC files, using IDs as strings instead")
+			print(e)
 
 		# make output "songs" directory
-		if not os.path.isdir(output_dir):
-			os.mkdir(output_dir)
+		try:
+			if not os.path.isdir(output_dir):
+				os.mkdir(output_dir)
+		except Exception as e:
+			print("Error: Failed to make output folder {}".format(output_dir))
+			print(e)
+			usage()
 		
 		# parse tracklisting.xml
 		tracklisting_text = None
@@ -159,16 +171,39 @@ def main():
 			tracklist = ET.fromstring(tracklisting_text)
 			if tracklist.tag == "Track":
 				raise ET.ParseError
-		except ET.ParseError:
-			tracklisting_text = "<TrackList>" + tracklisting_text + "</TrackList>"
-			tracklist = ET.fromstring(tracklisting_text)
+		except Exception as e:
+			try:
+				tracklisting_text = "<TrackList>" + tracklisting_text + "</TrackList>"
+				tracklist = ET.fromstring(tracklisting_text)
+			except Exception as e:
+				print("Failed to process xml file {}".format(tracklisting_filename))
+				print(e)
+				usage()
+			
+		tracks = tracklist.findall("Track")
+		if len(tracks) <= 0:
+			print("Error: no Tracks found in {}".format(tracklisting_filename))
+			usage()
 
 		for track in tracklist.findall("Track"):
 			ini_dict = {}
-			idtag = track.find("IDTag").text.replace("\\", "/")
-			loc = track.find("FolderLocation").text.replace("\\", "/")
+			
+			idtag_tag = track.find("IDTag")
+			if idtag_tag == None:
+				print("Error: found Track without IDTag, skipping")
+				error_count += 1
+				continue
+			idtag = idtag_tag.text
+			
+			loc_tag = track.find("FolderLocation")
+			if loc_tag == None:
+				print("Error: {} has no FolderLocation, skipping".format(idtag))
+				error_count += 1
+				continue
+			loc = loc_tag.text.replace("\\", "/")
 			loc_track_folder = loc.split("/")[-1]
-			print(idtag)
+			
+			print("Converting {}".format(idtag))
 			
 			if is_audiotracks_folder:
 				loc = "{}/../../{}".format(chart_path, loc)
@@ -177,12 +212,19 @@ def main():
 			
 			if not os.path.isdir(loc):
 				print("Error: folder for {} does not exist, skipping".format(idtag))
+				error_count += 1
 				continue
 			
 			# make output track directory
 			output_track_dir = "{}/{}".format(output_dir, loc_track_folder)
-			if not os.path.isdir(output_track_dir):
-				os.mkdir(output_track_dir)
+			try:
+				if not os.path.isdir(output_track_dir):
+					os.mkdir(output_track_dir)
+			except Exception as e:
+				print("Error: Failed to make output folder for {}, skipping".format(idtag))
+				print(e)
+				error_count += 1
+				continue
 			
 			# build info.ini
 			add_ini_key(track, ini_dict, "artist", "MixArtist", True)
@@ -202,28 +244,47 @@ def main():
 
 			info_ini = configparser.ConfigParser()
 			info_ini["song"] = ini_dict
-			with open("{}/info.ini".format(output_track_dir), "w") as ini_file:
-				info_ini.write(ini_file)
+			try:
+				with open("{}/info.ini".format(output_track_dir), "w") as ini_file:
+					info_ini.write(ini_file)
+			except:
+				print("Error: Failed to write info.ini for {}, skipping".format(idtag))
+				print(e)
+				error_count += 1
 			
 			# copy DJ_Expert.xmk to chart.xmk
-			shutil.copyfile("{}/DJ_Expert.xmk".format(loc), "{}/chart.xmk".format(output_track_dir))
+			try:
+				shutil.copyfile("{}/DJ_Expert.xmk".format(loc), "{}/chart.xmk".format(output_track_dir))
+			except Exception as e:
+				print("Error: Failed to copy DJ_Expert.xmk to chart.xmk for {}, skipping".format(idtag))
+				print(e)
+				error_count += 1
 			
 			# convert DJ.fsb to song.ogg
 			if convert_audio:
 				try:
 					vgm_out = subprocess.run([vgms_path, "-i", "-p", "{}/DJ.fsb".format(loc)], capture_output = True)
 					if vgm_out.returncode != 0:
-						print("Error: Failed to extract DJ.fsb")
+						print("Error: Failed to extract DJ.fsb for song.ogg for {}, skipping".format(idtag))
+						error_count += 1
 					else:
 						sox_out = subprocess.run([sox_path, "-t", ".wav", "-",
 												   "-C", "8", "{}/song.ogg".format(output_track_dir), "-D",
 												   "remix", "-m", "1,3,5", "2,4,6",
 												   "rate", "-v", "44100"], input = vgm_out.stdout)
 						if sox_out.returncode != 0:
-							print("Error: Failed to mix DJ.fsb to ogg")
-				except FileNotFoundError:
-					print("Warning: vgmstream or sox not found, audio not converted")
-					continue
+							print("Error: Failed to mix DJ.fsb to ogg for {}, skipping song.ogg".format(idtag))
+							error_count += 1
+				except Exception as e:
+					print("Error: Failed to convert DJ.ogg to song.ogg for {}, skipping".format(idtag))
+					print(e)
+					error_count += 1
+			
+			converted_count += 1
+	
+	print("{} chart(s) processed".format(converted_count))
+	print("{} error(s)".format(error_count))
+	time.sleep(SLEEP_TIME)
 
 if __name__ == "__main__":
 	main()
