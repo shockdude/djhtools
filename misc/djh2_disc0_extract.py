@@ -169,12 +169,17 @@ class ImgFile:
 			self.img_1.close()
 
 def main():
-	if len(sys.argv) < 2:
-		print("Error: not enough arguments")
-		usage()
-	
-	img_file_0 = sys.argv[1]
+	noargs = False
+	img_file_0 = None
 	img_file_1 = None
+	if len(sys.argv) < 2:
+		noargs = True
+		if os.path.isfile("DISC0.IMG.part0"):
+			img_file_0 = "DISC0.IMG.part0"
+		elif os.path.isfile("DISC0.IMG"):
+			img_file_0 = "DISC0.IMG"
+	else:
+		img_file_0 = sys.argv[1]
 	
 	img_filename, img_fileext = os.path.splitext(img_file_0)
 	if img_fileext.lower() == PART0_EXT:
@@ -188,6 +193,14 @@ def main():
 	print("Extracting files...")
 	img.dump_files()
 	img.close()
+	
+	if noargs:
+		if os.path.isfile("DISC0.IMG.part0"):
+			os.rename("DISC0.IMG.part0", "DISC0_bak.IMG.part0")
+		if os.path.isfile("DISC0.IMG.part1"):
+			os.rename("DISC0.IMG.part1", "DISC0_bak.IMG.part1")
+		if os.path.isfile("DISC0.IMG"):
+			os.rename("DISC0.IMG", "DISC0_bak.IMG")
 	print("Done")
 
 if __name__ == "__main__":

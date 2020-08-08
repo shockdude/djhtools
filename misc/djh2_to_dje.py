@@ -129,7 +129,7 @@ def main():
 		try:
 			if is_audiotracks_folder:
 				# build trac string dict from text strings
-				with open("{}/../../Text/TRAC/TRACID.txt".format(chart_path), "r") as tracid_file:
+				with open("{}/../../Text/TRAC/TRACID.txt".format(chart_path), "r", encoding="utf-8") as tracid_file:
 					with open ("{}/../../Text/TRAC/TRACE.txt".format(chart_path), "rb") as trace_file:
 						tracids = tracid_file.read().split("\n")
 						traces = trace_file.read().split(b"\x00")
@@ -165,7 +165,7 @@ def main():
 		
 		# parse tracklisting.xml
 		tracklisting_text = None
-		with open(tracklisting_filename, "r") as tracklisting_file:
+		with open(tracklisting_filename, "r", encoding="utf-8") as tracklisting_file:
 			tracklisting_text = tracklisting_file.read()
 		try:
 			tracklist = ET.fromstring(tracklisting_text)
@@ -245,7 +245,7 @@ def main():
 			info_ini = configparser.ConfigParser()
 			info_ini["song"] = ini_dict
 			try:
-				with open("{}/info.ini".format(output_track_dir), "w") as ini_file:
+				with open("{}/info.ini".format(output_track_dir), "w", encoding="utf-8") as ini_file:
 					info_ini.write(ini_file)
 			except:
 				print("Error: Failed to write info.ini for {}, skipping".format(idtag))
