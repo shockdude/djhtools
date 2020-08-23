@@ -1,7 +1,7 @@
 """
 MIT License
 
-Copyright (c) 2019 shockdude
+Copyright (c) 2020 shockdude
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,11 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero 2 to DJ Engine Converter v0.51
+# DJ Hero 2 to DJ Engine Converter v0.61
 
 import os, sys
 import xml.etree.ElementTree as ET
-import configparser
+import json
 import csv
 import subprocess
 import shutil
@@ -40,8 +40,8 @@ output_dir = "songs"
 def usage():
 	basename = os.path.basename(sys.argv[0])
 	print()
-	print("DJH2 to DJ Engine Converter v0.51")
-	print("Convert DJH2 audiotracks folder or DJH2 custom charts to a songs folder compatible with DJ Engine Alpha v1.1")
+	print("DJH2 to DJ Engine Converter v0.61")
+	print("Convert DJH2 audiotracks folder or DJH2 custom charts to a songs folder compatible with DJ Engine Alpha v1.5")
 	print()
 	print("Usage: Drag-and-drop DJ Hero 2's AUDIO\Audiotracks folder onto {}".format(basename))
 	print("or drag-and-drop a custom song's folder (or its DJH2 folder) onto {}.".format(basename))
@@ -51,33 +51,137 @@ def usage():
 	time.sleep(SLEEP_TIME)
 	sys.exit(1)
 
-def add_ini_key(track, ini_dict, ini_key, xml_elem, is_trac = False, xml_attr = None, xml_attr_value = None):
-	elems = track.findall(xml_elem)
-	if len(elems) == 0:
-		return
-	
-	count = 1
-	
-	for elem in elems:
-		value = elem.text
-		
-		# need to lookup from the trac dict?
-		if is_trac:
-			trac_key = value.upper()
-			if trac_key in trac_dict:
-				value = trac_dict[trac_key]
+def get_from_trac(key):
+	trac_key = key.upper()
+	if trac_key in trac_dict:
+		return trac_dict[trac_key]
+	return key
 
-		# dependent on an xml attribute?
-		if xml_attr != None:
-			if elem.attrib[xml_attr] == str(xml_attr_value):
-				ini_dict[ini_key] = value
-				return
-		# e.g. multiple MixName elements become "name" and "name2"
-		elif count > 1:
-			ini_dict[ini_key + str(count)] = value
+def add_to_json(song_json, json_path, value):
+	current_root = song_json
+	for json_entry in json_path[:-1]:
+		if json_entry not in current_root:
+			current_root[json_entry] = {}
+		current_root = current_root[json_entry]
+	current_root[json_path[-1]] = value
+
+def build_json(track):
+	song_json = {}
+	bpm = 0
+	
+	elems = track.findall("MixName")
+	if len(elems) > 0:
+		add_to_json(song_json, ["song", "first", "name"], get_from_trac(elems[0].text))
+		add_to_json(song_json, ["extra", "id", "id_name"], elems[0].text)
+		if len(elems) > 1:
+			add_to_json(song_json, ["song", "second", "name"], get_from_trac(elems[1].text))
+			add_to_json(song_json, ["extra", "id", "id_name2"], elems[1].text)
+		# HACK: dje v1.5 needs a second song
 		else:
-			ini_dict[ini_key] = value
-		count += 1
+			add_to_json(song_json, ["song", "second", "name"], "")
+		
+	elems = track.findall("MixArtist")
+	if len(elems) > 0:
+		add_to_json(song_json, ["song", "first", "artist"], get_from_trac(elems[0].text))
+		add_to_json(song_json, ["extra", "id", "id_artist"], elems[0].text)
+		if len(elems) > 1:
+			add_to_json(song_json, ["song", "second", "artist"], get_from_trac(elems[1].text))
+			add_to_json(song_json, ["extra", "id", "id_artist2"], elems[1].text)
+		# HACK: dje v1.5 needs a second song
+		else:
+			add_to_json(song_json, ["song", "second", "artist"], "")
+	
+	elem = track.find("MixHeadlineDJName")
+	if elem != None:
+		add_to_json(song_json, ["song", "dj"], get_from_trac(elem.text))
+		
+	elem = track.find("TrackDuration")
+	if elem != None:
+		add_to_json(song_json, ["song", "song_length"], int(elem.text) * 1000)
+
+	elem = track.find("BPM")
+	if elem != None:
+		bpm = float(elem.text)
+		add_to_json(song_json, ["difficulty", "bpm"], bpm)
+	
+	elem = track.find("PreviewLoopPointStartInBars")
+	if elem != None:
+		bar = float(elem.text)
+		add_to_json(song_json, ["song", "preview_start_time"], int(round(240000.0*(bar-1)/bpm)))
+
+	elem = track.find("PreviewLoopPointEndInBars")
+	if elem != None:
+		bar = float(elem.text)
+		add_to_json(song_json, ["song", "preview_end_time"], int(round(240000.0*(bar-1)/bpm)))
+
+	elems = track.findall("DeckSpeedMultiplier")
+	for elem in elems:
+		elem_diff = elem.attrib["Difficulty"]
+		if elem_diff == "0":
+			add_to_json(song_json, ["difficulty", "deck_speed", "deckspeed_beginner"], float(elem.text))
+		elif elem_diff == "1":
+			add_to_json(song_json, ["difficulty", "deck_speed", "deckspeed_easy"], float(elem.text))
+		elif elem_diff == "2":
+			add_to_json(song_json, ["difficulty", "deck_speed", "deckspeed_medium"], float(elem.text))
+		elif elem_diff == "3":
+			add_to_json(song_json, ["difficulty", "deck_speed", "deckspeed_hard"], float(elem.text))
+		elif elem_diff == "4":
+			add_to_json(song_json, ["difficulty", "deck_speed", "deckspeed_expert"], float(elem.text))
+			
+	elem = track.find("TrackComplexity")
+	if elem != None:
+		add_to_json(song_json, ["difficulty", "complexity", "track_complexity"], int(elem.text))
+		
+	elem = track.find("TapComplexity")
+	if elem != None:
+		add_to_json(song_json, ["difficulty", "complexity", "tap_complexity"], int(elem.text))
+			
+	elem = track.find("CrossfadeComplexity")
+	if elem != None:
+		add_to_json(song_json, ["difficulty", "complexity", "cross_complexity"], int(elem.text))
+			
+	elem = track.find("ScratchComplexity")
+	if elem != None:
+		add_to_json(song_json, ["difficulty", "complexity", "scratch_complexity"], int(elem.text))
+			
+	elem = track.find("IsMegamixBridge")
+	if elem != None:
+		if elem.text == "1":
+			add_to_json(song_json, ["extra", "megamix", "megamix_transitions"], True)
+
+	elem = track.find("HasExtendedIntro")
+	if elem != None:
+		if elem.text == "1":
+			add_to_json(song_json, ["extra", "megamix", "megamix_has_intro"], True)
+
+	elem = track.find("HighwayRevealBarOffset")
+	if elem != None:
+		bar = float(elem.text)
+		add_to_json(song_json, ["extra", "megamix_highway_offset"], int(round(240000.0*(bar-1)/bpm)))
+	
+	elems = track.findall("SortArtist")
+	sort_artists = []
+	for elem in elems:
+		sort_artists.append(get_from_trac(elem.text))
+	if len(sort_artists) > 0:
+		add_to_json(song_json, ["extra", "sort_artists"], sort_artists)
+
+	elem = track.find("EnvironmentIntroStartBar")
+	if elem != None:
+		bar = float(elem.text)
+		add_to_json(song_json, ["extra", "env_start_time"], int(round(240000.0*(bar-1)/bpm)))
+	
+	elem = track.find("IsADMCTrack")
+	if elem != None:
+		if elem.text == "1":
+			add_to_json(song_json, ["extra", "battle_music"], True)
+	
+	elem = track.find("IsMenuMusic")
+	if elem != None:
+		if elem.text == "1":
+			add_to_json(song_json, ["extra", "menu_music"], True)
+	
+	return song_json
 
 def main():
 	convert_audio = True
@@ -129,7 +233,7 @@ def main():
 		try:
 			if is_audiotracks_folder:
 				# build trac string dict from text strings
-				with open("{}/../../Text/TRAC/TRACID.txt".format(chart_path), "r", encoding="utf-8") as tracid_file:
+				with open("{}/../../Text/TRAC/TRACID.txt".format(chart_path), "r") as tracid_file:
 					with open ("{}/../../Text/TRAC/TRACE.txt".format(chart_path), "rb") as trace_file:
 						tracids = tracid_file.read().split("\n")
 						traces = trace_file.read().split(b"\x00")
@@ -165,7 +269,7 @@ def main():
 		
 		# parse tracklisting.xml
 		tracklisting_text = None
-		with open(tracklisting_filename, "r", encoding="utf-8") as tracklisting_file:
+		with open(tracklisting_filename, "r") as tracklisting_file:
 			tracklisting_text = tracklisting_file.read()
 		try:
 			tracklist = ET.fromstring(tracklisting_text)
@@ -186,8 +290,6 @@ def main():
 			usage()
 
 		for track in tracklist.findall("Track"):
-			ini_dict = {}
-			
 			idtag_tag = track.find("IDTag")
 			if idtag_tag == None:
 				print("Error: found Track without IDTag, skipping")
@@ -226,57 +328,64 @@ def main():
 				error_count += 1
 				continue
 			
-			# build info.ini
-			add_ini_key(track, ini_dict, "artist", "MixArtist", True)
-			add_ini_key(track, ini_dict, "name", "MixName", True)
-			add_ini_key(track, ini_dict, "dj", "MixHeadlineDJName", True)
-			add_ini_key(track, ini_dict, "bpm", "BPM")
-			add_ini_key(track, ini_dict, "deckspeed_beginner", "DeckSpeedMultiplier", False, "Difficulty", "0")
-			add_ini_key(track, ini_dict, "deckspeed_easy", "DeckSpeedMultiplier", False, "Difficulty", "1")
-			add_ini_key(track, ini_dict, "deckspeed_medium", "DeckSpeedMultiplier", False, "Difficulty", "2")
-			add_ini_key(track, ini_dict, "deckspeed_hard", "DeckSpeedMultiplier", False, "Difficulty", "3")
-			add_ini_key(track, ini_dict, "deckspeed_expert", "DeckSpeedMultiplier", False, "Difficulty", "4")
-			add_ini_key(track, ini_dict, "track_complexity", "TrackComplexity")
-			add_ini_key(track, ini_dict, "tap_complexity", "TapComplexity")
-			add_ini_key(track, ini_dict, "crossfade_complexity", "CrossfadeComplexity")
-			add_ini_key(track, ini_dict, "scratch_complexity", "ScratchComplexity")
-			add_ini_key(track, ini_dict, "song_length", "TrackDuration")
-
-			info_ini = configparser.ConfigParser()
-			info_ini["song"] = ini_dict
+			# build song.json
+			song_json = build_json(track)
 			try:
-				with open("{}/info.ini".format(output_track_dir), "w", encoding="utf-8") as ini_file:
-					info_ini.write(ini_file)
-			except:
-				print("Error: Failed to write info.ini for {}, skipping".format(idtag))
+				with open("{}/song.json".format(output_track_dir), "w") as json_file:
+					print(json.dumps(song_json, sort_keys=False, indent=4), file=json_file)
+			except Exception as e:
+				print("Error: Failed to write song.json for {}, skipping".format(idtag))
 				print(e)
 				error_count += 1
 			
 			# copy DJ_Expert.xmk to chart.xmk
-			try:
-				shutil.copyfile("{}/DJ_Expert.xmk".format(loc), "{}/chart.xmk".format(output_track_dir))
-			except Exception as e:
-				print("Error: Failed to copy DJ_Expert.xmk to chart.xmk for {}, skipping".format(idtag))
-				print(e)
+			chart_diffs = ("DJ_Beginner.xmk", "DJ_Easy.xmk", "DJ_Medium.xmk", "DJ_Hard.xmk", "DJ_Expert.xmk")
+			chart_copied = False
+			for chart_xmk in chart_diffs:
+				try:
+					chart_filepath = "{}/{}".format(loc, chart_xmk)
+					if os.path.isfile(chart_filepath):
+						shutil.copyfile(chart_filepath, "{}/{}".format(output_track_dir, chart_xmk))
+						chart_copied = True
+				except Exception as e:
+					print("Error: Failed to copy {} for {}, skipping".format(chart_xmk, idtag))
+					print(e)
+					error_count += 1
+			if not chart_copied:
+				print("Error: No chart copied for {}".format(idtag))
 				error_count += 1
 			
 			# convert DJ.fsb to song.ogg
 			if convert_audio:
 				try:
-					vgm_out = subprocess.run([vgms_path, "-i", "-p", "{}/DJ.fsb".format(loc)], capture_output = True)
+					temp_wav = "{}/temp.wav".format(output_track_dir)
+					vgm_out = subprocess.run([vgms_path, "-i", "{}/DJ.fsb".format(loc), "-o", temp_wav], stdout=subprocess.DEVNULL)
 					if vgm_out.returncode != 0:
 						print("Error: Failed to extract DJ.fsb for song.ogg for {}, skipping".format(idtag))
 						error_count += 1
 					else:
-						sox_out = subprocess.run([sox_path, "-t", ".wav", "-",
-												   "-C", "8", "{}/song.ogg".format(output_track_dir), "-D",
-												   "remix", "-m", "1,3,5", "2,4,6",
-												   "rate", "-v", "44100"], input = vgm_out.stdout)
-						if sox_out.returncode != 0:
-							print("Error: Failed to mix DJ.fsb to ogg for {}, skipping song.ogg".format(idtag))
+						sox_out0 = subprocess.Popen([sox_path, temp_wav, 
+													"-C", "8", "{}/green.ogg".format(output_track_dir), "-D",
+													"remix", "-m", "1", "2",
+													"rate", "-v", "44100"])
+						sox_out1 = subprocess.Popen([sox_path, temp_wav, 
+													"-C", "8", "{}/blue.ogg".format(output_track_dir), "-D",
+													"remix", "-m", "3", "4",
+													"rate", "-v", "44100"])
+						sox_out2 = subprocess.Popen([sox_path, temp_wav, 
+													"-C", "8", "{}/red.ogg".format(output_track_dir), "-D",
+													"remix", "-m", "5", "6",
+													"rate", "-v", "44100"])
+						sox_out0.wait()
+						sox_out1.wait()
+						sox_out2.wait()
+						if sox_out0.returncode != 0 or sox_out1.returncode != 0 or sox_out2.returncode != 0:
+							print("Error: Failed to mix DJ.fsb to ogg stems for {}, skipping".format(idtag))
 							error_count += 1
+					if os.path.isfile(temp_wav):
+						os.remove(temp_wav)
 				except Exception as e:
-					print("Error: Failed to convert DJ.ogg to song.ogg for {}, skipping".format(idtag))
+					print("Error: Failed to convert DJ.ogg to ogg stems for {}, skipping".format(idtag))
 					print(e)
 					error_count += 1
 			
