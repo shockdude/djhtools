@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero 2 to DJ Engine Converter v0.61
+# DJ Hero 2 to DJ Engine Converter v0.62
 
 import os, sys
 import xml.etree.ElementTree as ET
@@ -40,8 +40,8 @@ output_dir = "songs"
 def usage():
 	basename = os.path.basename(sys.argv[0])
 	print()
-	print("DJH2 to DJ Engine Converter v0.61")
-	print("Convert DJH2 audiotracks folder or DJH2 custom charts to a songs folder compatible with DJ Engine Alpha v1.5")
+	print("DJH2 to DJ Engine Converter v0.62")
+	print("Convert DJH2 audiotracks folder or DJH2 custom charts to a songs folder compatible with DJ Engine Alpha v1.5p1")
 	print()
 	print("Usage: Drag-and-drop DJ Hero 2's AUDIO\Audiotracks folder onto {}".format(basename))
 	print("or drag-and-drop a custom song's folder (or its DJH2 folder) onto {}.".format(basename))
@@ -76,9 +76,6 @@ def build_json(track):
 		if len(elems) > 1:
 			add_to_json(song_json, ["song", "second", "name"], get_from_trac(elems[1].text))
 			add_to_json(song_json, ["extra", "id", "id_name2"], elems[1].text)
-		# HACK: dje v1.5 needs a second song
-		else:
-			add_to_json(song_json, ["song", "second", "name"], "")
 		
 	elems = track.findall("MixArtist")
 	if len(elems) > 0:
@@ -87,9 +84,6 @@ def build_json(track):
 		if len(elems) > 1:
 			add_to_json(song_json, ["song", "second", "artist"], get_from_trac(elems[1].text))
 			add_to_json(song_json, ["extra", "id", "id_artist2"], elems[1].text)
-		# HACK: dje v1.5 needs a second song
-		else:
-			add_to_json(song_json, ["song", "second", "artist"], "")
 	
 	elem = track.find("MixHeadlineDJName")
 	if elem != None:
