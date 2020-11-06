@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-# DJ Hero FSGMUB/XMK Converter v0.41
+# DJ Hero FSGMUB/XMK Converter v0.45
 # Convert DJH1 FSGMUB to DJH2 XMK and vice versa
 # Credit to pikminguts92 from ScoreHero for documenting the FSGMUB format
 # https://www.scorehero.com/forum/viewtopic.php?p=1827382#1827382
@@ -85,8 +85,8 @@ def check_spike(crossfades):
 		# anything can go to an edgespike except for a centerspike
 		if crossfades[2][1] != 29 and crossfades[1][1] in (9, 11):
 			return True
-		# centerspike
-		if crossfades[2][1] == crossfades[0][1]:
+		# centerspike only if cf[0] is not going to be a spike
+		if crossfades[2][1] == crossfades[0][1] and crossfades[0][2] > DJH1_MAX_NOTELEN:
 			return True
 	return False
 		
