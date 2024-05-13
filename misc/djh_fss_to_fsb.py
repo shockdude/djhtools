@@ -354,14 +354,28 @@ def main():
 					else:
 						print("Error: WAVs do not all have the same sample rate. Got sample rate {}Hz".format(sample_rate))
 						usage()
-				data = struct.unpack("<HH4sI",wav_file.read(12)) # unneeded math, bits per sample, data chunk header, payload size
+				data = struct.unpack("<HH",wav_file.read(4)) # unneeded math, bits per sample
 				if data[1] != 16:
 					print("Error: failed to parse WAV, only 16-bit WAV is supported")
 					usage()
-				if data[2] != DATA_MAGIC:
+				data_bytes = wav_file.read(4)
+				chunk_name = struct.unpack("<4s",data_bytes)[0] # data chunk header or some other header
+				while len(data_bytes) == 4 and chunk_name != DATA_MAGIC:
+					# some other chunk that's not data
+					# read its length and then skip it
+					chunk_length = struct.unpack("<I",wav_file.read(4))[0] # chunk length
+					print("skipping chunk {} with length {}".format(chunk_name.decode("utf-8"), chunk_length))
+					wav_file.seek(chunk_length, 1)
+					data_bytes = wav_file.read(4)
+					if len(data_bytes) == 4:
+						chunk_name = struct.unpack("<4s",data_bytes)[0] # maybe this is data chunk header?
+					else:
+						chunk_name = None
+				if chunk_name != DATA_MAGIC:
 					print("Error: failed to parse WAV, no data chunk header")
 					usage()
-				payload_size = data[3]
+				data = struct.unpack("<I",wav_file.read(4)) # payload size
+				payload_size = data[0]
 				fsb_sizes.append(payload_size)
 				sample_counts.append(int(payload_size / 4)) # 2 channels of 16-bit samples
 		

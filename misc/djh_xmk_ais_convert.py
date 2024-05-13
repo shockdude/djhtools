@@ -143,7 +143,7 @@ def main():
 				float_data = 0
 				int_data = 0
 				pos, note, length = note_array[i][:3]
-				ai_time = start_time + pos*measure_time
+				ai_time = start_time + pos*measure_time - 0.01
 				is_hit = random.uniform(0,100) <= hit_rate
 				hit_offset = 0
 				
